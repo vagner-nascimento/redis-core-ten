@@ -7,7 +7,6 @@ import io.lettuce.core.RedisCommandExecutionException;
 import io.lettuce.core.ScoredValue;
 import io.lettuce.core.protocol.CommandType;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -47,6 +46,7 @@ public class Console {
             }
 
             KeyValue item;
+            String key;
 
             switch (command) {
                 case GET:
@@ -57,6 +57,8 @@ public class Console {
 
                     try (RedisClientTen client = new RedisClientTen()) {
                         System.out.println(client.Get(commandParts[1].trim()));
+                    } catch (RedisCommandExecutionException eCmd) {
+                        System.out.println(eCmd.getMessage());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -71,6 +73,8 @@ public class Console {
 
                     try (RedisClientTen client = new RedisClientTen()) {
                         System.out.println(client.Set(item));
+                    } catch (RedisCommandExecutionException eCmd) {
+                        System.out.println(eCmd.getMessage());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -109,6 +113,8 @@ public class Console {
 
                     try (RedisClientTen client = new RedisClientTen()) {
                         System.out.println(client.SetEX(item, expiration));
+                    } catch (RedisCommandExecutionException eCmd) {
+                        System.out.println(eCmd.getMessage());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -134,6 +140,8 @@ public class Console {
 
                     try (RedisClientTen client = new RedisClientTen()) {
                         System.out.println(client.Del(keysToDel));
+                    } catch (RedisCommandExecutionException eCmd) {
+                        System.out.println(eCmd.getMessage());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -141,6 +149,8 @@ public class Console {
                 case DBSIZE:
                     try (RedisClientTen client = new RedisClientTen()) {
                         System.out.println(client.DbSize());
+                    } catch (RedisCommandExecutionException eCmd) {
+                        System.out.println(eCmd.getMessage());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -151,10 +161,12 @@ public class Console {
                         break;
                     }
 
+                    key = commandParts[1].trim();
+
                     try (RedisClientTen client = new RedisClientTen()) {
-                        System.out.println(client.Incr(commandParts[1].trim()));
-                    } catch (RedisCommandExecutionException eRedis) {
-                        System.out.println(eRedis.getMessage());
+                        System.out.println(client.Incr(key));
+                    } catch (RedisCommandExecutionException eCmd) {
+                        System.out.println(eCmd.getMessage());
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -165,8 +177,21 @@ public class Console {
                         break;
                     }
 
-                    ScoredValue<String>[] values = GetScoredValues(commandParts[2]);
+                    ScoredValue<String>[] values;
+                    RedisClientTen client = null;
+                    key = commandParts[1].trim();
 
+                    try {
+                        values = GetScoredValues(commandParts[2].trim());
+                        client = new RedisClientTen();
+                        System.out.println(client.ZAdd(key, values));
+                    } catch (UnsupportedOperationException | RedisCommandExecutionException eMsg) {
+                        System.out.println(eMsg.getMessage());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    } finally {
+                        if (client != null) client.close();
+                    }
                     break;
                 default:
                     System.out.println("Command not implemented, bad... baaad programmer...");
@@ -186,8 +211,10 @@ public class Console {
         String command = null;
         String key = null;
         StringBuffer aux = new StringBuffer();
+        int count = 0;
 
         for (char c : text.toCharArray()) {
+            count++;
             if (command == null) {
                 if (c != ' ') {
                     aux.append(c);
@@ -195,6 +222,11 @@ public class Console {
                     command = aux.toString();
                     aux = new StringBuffer();
                     continue;
+                }
+                //Last array element without complete command
+                if (count == text.length()) {
+                    command = aux.toString();
+                    aux = new StringBuffer();
                 }
             } else if (key == null) {
                 if (c != ' ') {
@@ -204,84 +236,90 @@ public class Console {
                     aux = new StringBuffer();
                     continue;
                 }
+                //Last array element without complete key
+                if (count == text.length()) {
+                    key = aux.toString();
+                    aux = new StringBuffer();
+                }
             } else {
                 aux.append(c);
             }
         }
 
-        if (command == null) {
-            command = aux.toString();
-            aux = new StringBuffer();
-        } else if (key == null) {
-            key = aux.toString();
-            aux = new StringBuffer();
-        }
-
         return new String[]{command, key, aux.toString()};
     }
 
-    @Nullable
-    private static KeyValue<String, String> GetKeyValue(String[] argumments, int startIndex) {
-        if (argumments.length < 1) {
-            return null;
-        }
-
-        String key = argumments[1].trim();
-        StringBuffer value = new StringBuffer();
-
-        if (argumments.length >= (startIndex + 1)) {
-            for (int i = startIndex; i <= (argumments.length - 1); i++) {
-                value.append(" " + argumments[i]);
-            }
-        }
-
-        return KeyValue.just(key, value.toString().trim());
-    }
-
+    /**
+     * Mount a valid array of ScoredValues to use on ZADD command
+     * - Text must start with a valid number score.
+     * - Values must be envolved by quotes, something like "MyValue"
+     * - Example of valid text to convert: 1 "one" 2 "two" 3 "three"
+     * @param textToExtract Text with scores and values
+     * @return An array of valid ScoredValues
+     * @throws UnsupportedOperationException if some validadtion was not OK
+     */
     @NotNull
     private static ScoredValue<String>[] GetScoredValues(String textToExtract) throws UnsupportedOperationException {
         char[] chars = textToExtract.toCharArray();
-        int count = 0;
+        int countQuota = 0;
+
+        Double auxDouble = TryParse.toDouble(String.valueOf(chars[0]));
+        if (auxDouble == null) {
+            throw new UnsupportedOperationException("Command arguments must start with a valid double score");
+        }
+
+        if (chars[chars.length - 1] != '"') {
+            throw new UnsupportedOperationException("The last argument must be a value envolved by quotes");
+        }
 
         for (char c : chars) {
             if (c == '"') {
-                count++;
+                countQuota++;
             }
         }
 
-        if (count == 0 || (count % 2) > 0) {
-            throw new UnsupportedOperationException("The given string must have a pair count of '\"' chracter");
+        if (countQuota == 0 || (countQuota % 2) > 0) {
+            throw new UnsupportedOperationException("All values must be envolved by quotes");
         }
 
         List<ScoredValue<String>> values = new ArrayList<>();
         Double score = null;
-        count = 0;
-        StringBuffer value = new StringBuffer();
+        int count = 0;
+        StringBuffer auxStr = new StringBuffer();
 
         for (char c : chars) {
-            if (score == null) {
-                Double aux = TryParse.toDouble(String.valueOf(c));
-                if (aux != null) {
-                    score = aux;
-                    continue;
+            // Getting score numbers
+            if (c != '"' && score == null) {
+                if (c == '.' || c == ',') {
+                    auxStr.append('.');
+                } else if (c != ' ') {
+                    auxStr.append(c);
                 }
-            }
-            if (c == '"') {
+            } else { // Getting value
+                if (score == null) {
+                    score = TryParse.toDouble(auxStr.toString());
+                    if (score == null) {
+                        throw new UnsupportedOperationException("Invalid score value informed: " + auxStr);
+                    }
+                    auxStr = new StringBuffer();
+                }
+
+                if (c == '"') count++;
+                else auxStr.append(c);
+
                 if (count == 2) {
-                    values.add(ScoredValue.just(score, value.toString()));
-                    value = new StringBuffer();
+                    values.add(ScoredValue.just(score, auxStr.toString().trim()));
+                    auxStr = new StringBuffer();
                     score = null;
                     count = 0;
-                } else {
-                    count++;
                 }
-                continue;
-            } else {
-                value.append(c);
             }
         }
 
-        return (ScoredValue<String>[]) values.toArray();
+        ScoredValue<String>[] valuesArr = new ScoredValue[values.size()];
+        valuesArr = values.toArray(valuesArr);
+
+        return valuesArr;
     }
 
     /**
@@ -302,7 +340,7 @@ public class Console {
      */
     private static boolean ValidateKeyValue(String[] commandArgumments) {
         return ValidateKey(commandArgumments) &&
-                (commandArgumments[2] != null && !commandArgumments[2].trim().equals(""));
+                (commandArgumments[2] != null && !commandArgumments[2].equals(""));
     }
 }
 

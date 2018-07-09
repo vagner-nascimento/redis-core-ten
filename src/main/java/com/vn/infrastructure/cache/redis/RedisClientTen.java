@@ -8,7 +8,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import java.io.Closeable;
 import java.net.ConnectException;
 
-public final class RedisClientTen implements Closeable, RedisConnection {
+public final class RedisClientTen implements Closeable, IRedisCommands {
 
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> connection;
@@ -49,8 +49,7 @@ public final class RedisClientTen implements Closeable, RedisConnection {
 
     @Override
     public String SetEX(KeyValue<String, String> item, long expireSeconds) {
-        RedisCommands<String, String> syncCommands = this.connection.sync();
-
+        RedisCommands syncCommands = this.connection.sync();
         SetArgs commandArgs = new SetArgs();
 
         if (expireSeconds > 0) {
@@ -58,64 +57,47 @@ public final class RedisClientTen implements Closeable, RedisConnection {
         }
 
         String result = syncCommands.set(item.getKey(), item.getValue(), commandArgs);
-
         this.connection.reset();
-
         return result;
     }
 
     @Override
     public String Get(String key) {
-        RedisCommands<String, String> syncCommands = this.connection.sync();
-
-        String value = syncCommands.get(key);
-
+        RedisCommands syncCommands = this.connection.sync();
+        Object value = syncCommands.get(key);
         this.connection.reset();
-
-        return value;
+        return value == null ? "(nil)" : value.toString();
     }
 
     @Override
     public Long Del(String... keys) {
-        RedisCommands<String, String> syncCommands = this.connection.sync();
-
+        RedisCommands syncCommands = this.connection.sync();
         Long deleted = syncCommands.del(keys);
-
         this.connection.reset();
-
         return deleted;
     }
 
     @Override
     public Long DbSize() {
-        RedisCommands<String, String> syncCommands = this.connection.sync();
-
+        RedisCommands syncCommands = this.connection.sync();
         Long dbSize = syncCommands.dbsize();
-
         this.connection.reset();
-
         return dbSize;
     }
 
     @Override
     public Long Incr(String key) {
-        RedisCommands<String, String> syncCommands = this.connection.sync();
-
+        RedisCommands syncCommands = this.connection.sync();
         Long incremented = syncCommands.incr(key);
-
         this.connection.reset();
-
         return incremented;
     }
 
     @Override
-    public Long ZAdd(String key, ScoredValue<String>... registries){
-        RedisCommands<String, String> syncCommands = this.connection.sync();
-
+    public Long ZAdd(String key, ScoredValue<String>... registries) {
+        RedisCommands syncCommands = this.connection.sync();
         Long added = syncCommands.zadd(key, registries);
-
         this.connection.reset();
-
         return added;
     }
 

@@ -3,7 +3,7 @@ package com.vn.infrastructure.cache.redis;
 import io.lettuce.core.KeyValue;
 import io.lettuce.core.ScoredValue;
 
-public interface RedisConnection {
+public interface IRedisCommands {
     String Get(String key);
 
     String Set(KeyValue<String, String> item);
