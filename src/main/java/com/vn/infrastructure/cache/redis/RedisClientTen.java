@@ -7,6 +7,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 
 import java.io.Closeable;
 import java.net.ConnectException;
+import java.util.List;
 
 public final class RedisClientTen implements Closeable, IRedisCommands {
 
@@ -43,34 +44,34 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public String Set(KeyValue<String, String> item) {
+    public String Set(KeyValue<Object, Object> item) {
         return this.SetEX(item, -1);
     }
 
     @Override
-    public String SetEX(KeyValue<String, String> item, long expireSeconds) {
-        RedisCommands syncCommands = this.connection.sync();
+    public String SetEX(KeyValue<Object, Object> item, long expireSeconds) {
         SetArgs commandArgs = new SetArgs();
 
         if (expireSeconds > 0) {
             commandArgs = SetArgs.Builder.ex(expireSeconds);
         }
 
+        RedisCommands syncCommands = this.connection.sync();
         String result = syncCommands.set(item.getKey(), item.getValue(), commandArgs);
         this.connection.reset();
         return result;
     }
 
     @Override
-    public String Get(String key) {
+    public Object Get(Object key) {
         RedisCommands syncCommands = this.connection.sync();
         Object value = syncCommands.get(key);
         this.connection.reset();
-        return value == null ? "(nil)" : value.toString();
+        return value;
     }
 
     @Override
-    public Long Del(String... keys) {
+    public Long Del(Object... keys) {
         RedisCommands syncCommands = this.connection.sync();
         Long deleted = syncCommands.del(keys);
         this.connection.reset();
@@ -86,7 +87,7 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public Long Incr(String key) {
+    public Long Incr(Object key) {
         RedisCommands syncCommands = this.connection.sync();
         Long incremented = syncCommands.incr(key);
         this.connection.reset();
@@ -94,7 +95,7 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public Long ZAdd(String key, ScoredValue<String>... registries) {
+    public Long ZAdd(Object key, ScoredValue<Object>... registries) {
         RedisCommands syncCommands = this.connection.sync();
         Long added = syncCommands.zadd(key, registries);
         this.connection.reset();
@@ -102,13 +103,41 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public void close() {
-        if (this.redisClient != null) {
-            this.redisClient.shutdown();
-        }
+    public Long ZCard(Object key) {
+        RedisCommands syncCommands = this.connection.sync();
+        Long found = syncCommands.zcard(key);
+        this.connection.reset();
+        return found;
+    }
 
+    @Override
+    public Long ZRank(KeyValue<Object, Object> item) {
+        RedisCommands syncCommands = this.connection.sync();
+        Long rank = syncCommands.zrank(item.getKey(), item.getValue());
+        this.connection.reset();
+        return rank;
+    }
+
+    @Override
+    public List<Object> ZRange(Object key, long start, long stop, boolean withScores) {
+        RedisCommands syncCommands = this.connection.sync();
+        List rank;
+
+        if (withScores) rank = syncCommands.zrangeWithScores(key, start, stop);
+        else rank = syncCommands.zrange(key, start, stop);
+
+        this.connection.reset();
+        return rank;
+    }
+
+    @Override
+    public void close() {
         if (this.connection != null && this.connection.isOpen()) {
             this.connection.close();
+        }
+
+        if (this.redisClient != null) {
+            this.redisClient.shutdown();
         }
     }
 }

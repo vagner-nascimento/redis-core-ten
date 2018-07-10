@@ -3,18 +3,26 @@ package com.vn.infrastructure.cache.redis;
 import io.lettuce.core.KeyValue;
 import io.lettuce.core.ScoredValue;
 
+import java.util.List;
+
 public interface IRedisCommands {
-    String Get(String key);
+    Object Get(Object key);
 
-    String Set(KeyValue<String, String> item);
+    Object Set(KeyValue<Object, Object> item);
 
-    String SetEX(KeyValue<String, String> item, long expireSeconds);
+    Object SetEX(KeyValue<Object, Object> item, long expireSeconds);
 
-    Long Del(String... keys);
+    Long Del(Object... keys);
 
     Long DbSize();
 
-    Long Incr(String key);
+    Long Incr(Object key);
 
-    Long ZAdd(String key, ScoredValue<String>... registries);
+    Long ZAdd(Object key, ScoredValue<Object>... registries);
+
+    Long ZCard(Object key);
+
+    Long ZRank(KeyValue<Object, Object> item);
+
+    List<Object> ZRange(Object key, long start, long stop, boolean withScores);
 }
