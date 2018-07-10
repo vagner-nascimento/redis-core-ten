@@ -15,7 +15,7 @@ public final class RedisCommandBuilder {
     private Object key;
     private Object value;
     private KeyValue keyValue;
-    private String commandArgs = "";
+    private String commandArgs;
     private ScoredValue<Object>[] scoredValues;
     private Long expiration, startPos, stopPos;
     private boolean withScores;
@@ -37,6 +37,9 @@ public final class RedisCommandBuilder {
         return this.key;
     }
 
+    /**
+     * @return Key value, if possible, otherwise, returns null
+     */
     @Nullable
     public KeyValue<Object, Object> getKeyValue() {
         if (this.keyValue == null
@@ -52,6 +55,11 @@ public final class RedisCommandBuilder {
         return this.command;
     }
 
+    /**
+     * @return An array of ScoreValues to use in ZADD function. Be aware, it can be EMPTY
+     * @throws UnsupportedOperationException This exception is throwed if was not possible to exctract a ScoredValue
+     *                                       array from command argumments
+     */
     @NotNull
     public ScoredValue<Object>[] getScoredValues() throws UnsupportedOperationException {
         if (this.scoredValues == null) this.exctractScoredValues();
@@ -65,15 +73,13 @@ public final class RedisCommandBuilder {
         return this.expiration;
     }
 
-    @NotNull
+    @Nullable
     public Long getStartPos() {
-        if (this.startPos == null) this.startPos = 0L;
         return this.startPos;
     }
 
-    @NotNull
+    @Nullable
     public Long getStopPos() {
-        if (this.stopPos == null) this.stopPos = 0L;
         return this.stopPos;
     }
 
@@ -97,43 +103,42 @@ public final class RedisCommandBuilder {
 
         for (char c : text.toCharArray()) {
             count++;
-            if (this.command == null) {
+            if (this.command == null) { //Extract command, first word before next space
                 if (c != ' ') {
                     auxStr.append(c);
-                } else {
+                } else { //Throws the IllegalArgumentException because the command are mandatory.
                     this.command = CommandType.valueOf(auxStr.toString().toUpperCase().trim());
-                    auxStr = new StringBuffer();
+                    auxStr.delete(0, auxStr.length());
                     continue;
                 }
                 //Last array element without complete command
                 if (count == text.length()) {
                     this.command = CommandType.valueOf(auxStr.toString().toUpperCase().trim());
-                    auxStr = new StringBuffer();
+                    auxStr.delete(0, auxStr.length());
                 }
-            } else if (this.key == null) {
+            } else if (this.key == null) { //Extract key, second word before next space
                 if (c != ' ') {
                     auxStr.append(c);
                 } else {
-                    this.key = auxStr.toString();
-                    auxStr = new StringBuffer();
+                    this.key = auxStr.toString().trim();
+                    auxStr.delete(0, auxStr.length());
                     continue;
                 }
                 //Last array element without complete key
                 if (count == text.length()) {
-                    this.key = auxStr.toString();
-                    auxStr = new StringBuffer();
+                    this.key = auxStr.toString().trim();
+                    auxStr.delete(0, auxStr.length());
                 }
             } else {
-                auxStr.append(c);
+                auxStr.append(c); //Extract the rest of command argumments.
             }
         }
 
-        this.commandArgs = auxStr.toString();
+        this.commandArgs = auxStr.toString().trim();
+        auxStr.delete(0, auxStr.length());
 
         switch (this.command) {
             case SETEX: //Extract expiration
-                auxStr = new StringBuffer();
-
                 for (char c : this.commandArgs.toCharArray()) {
                     if (this.expiration == null) {
                         this.expiration = TryParse.toLong(String.valueOf(c));
@@ -143,23 +148,21 @@ public final class RedisCommandBuilder {
                             this.expiration = null;
                         } else {
                             this.expiration = TryParse.toLong(auxStr.toString());
-                            auxStr = new StringBuffer();
+                            auxStr.delete(0, auxStr.length());
                         }
                     } else {
                         auxStr.append(c);
                     }
                 }
 
-                this.commandArgs = auxStr.toString();
+                this.commandArgs = auxStr.toString().trim();
                 break;
             case DEL: //Extract keys to delete
                 List<Object> auxList = new ArrayList<>();
                 auxList.add(this.key);
 
-                if (this.commandArgs != null) {
-                    for (String s : this.commandArgs.split("\\s")) {
-                        auxList.add(s.trim());
-                    }
+                for (String s : this.commandArgs.split("\\s")) {
+                    auxList.add(s.trim());
                 }
 
                 this.keysToDelete = new Object[auxList.size()];
@@ -176,9 +179,6 @@ public final class RedisCommandBuilder {
                 this.withScores = startStop.length >= 3 && startStop[2].trim().toUpperCase().equals("WITHSCORES");
                 break;
         }
-
-        this.commandArgs = this.commandArgs.trim();
-        if (this.key != null) this.key = this.key.toString().trim();
     }
 
     /**
@@ -191,71 +191,75 @@ public final class RedisCommandBuilder {
      * @throws UnsupportedOperationException If some validadtion was not OK
      */
     private void exctractScoredValues() throws UnsupportedOperationException {
-        char[] chars = this.commandArgs.toCharArray();
-        int countQuota = 0;
-
-        if (chars.length <= 0) {
-            this.scoredValues = new ScoredValue[0];
-            return;
-        }
-
-        Double auxDouble = TryParse.toDouble(String.valueOf(chars[0]));
-
-        if (auxDouble == null) {
-            throw new UnsupportedOperationException("Command arguments must start with a valid double score");
-        }
-
-        if (chars[chars.length - 1] != '"') {
-            throw new UnsupportedOperationException("The last argument must be a value envolved by quotes");
-        }
-
-        for (char c : chars) {
-            if (c == '"') {
-                countQuota++;
-            }
-        }
-
-        if (countQuota == 0 || (countQuota % 2) > 0) {
-            throw new UnsupportedOperationException("All values must be envolved by quotes");
-        }
-
         List<ScoredValue<String>> values = new ArrayList<>();
         Double score = null;
-        int count = 0;
         StringBuffer auxStr = new StringBuffer();
 
-        for (char c : chars) {
-            // Getting score numbers
-            if (c != '"' && score == null) {
-                if (c == '.' || c == ',') {
-                    auxStr.append('.');
-                } else if (c != ' ') {
-                    auxStr.append(c);
-                }
-            } else { // Getting values
-                if (score == null) {
-                    score = TryParse.toDouble(auxStr.toString());
-                    if (score == null) {
-                        throw new UnsupportedOperationException("Invalid score value informed: " + auxStr);
+        //Members envolved by quotes, Example: ZADD worldcup 1 "Brasil Yellow and Green" 2 "Alemanha is cold"
+        if (this.commandArgs.contains("\"")) {
+            char[] chars = this.commandArgs.toCharArray();
+
+            if (chars.length <= 0) {
+                this.scoredValues = new ScoredValue[0];
+                return;
+            }
+
+            int count = 0;
+
+            for (char c : chars) {
+                // Getting score numbers
+                if (c != '"' && score == null) {
+                    if (c == '.' || c == ',') {
+                        auxStr.append('.');
+                    } else if (c != ' ') {
+                        auxStr.append(c);
                     }
-                    auxStr = new StringBuffer();
+                } else { //Getting values
+                    if (score == null) { //It guarantee that it occurs only once
+                        score = TryParse.toDouble(auxStr.toString());
+
+                        if (score == null) //Scores is mandatory, without that a exception is throwed
+                            throw new UnsupportedOperationException("Invalid score value informed: " + auxStr);
+
+                        auxStr.delete(0, auxStr.length());
+                    }
+
+                    if (c == '"') count++;
+                    else auxStr.append(c);
+
+                    if (count == 2) { //A valid member, reset aux variables for the next interation
+                        if (auxStr.toString().trim().length() <= 0)
+                            throw new UnsupportedOperationException("Can't insert empty or blank elements");
+
+                        values.add(ScoredValue.just(score, auxStr.toString().trim()));
+                        auxStr.delete(0, auxStr.length());
+                        score = null;
+                        count = 0;
+                    }
                 }
+            }
+        } else { //Member separated by spaces. Ex: ZADD worldcup 1 France 2 UnitedKingdom 3 Nigery
+            String[] auxArr = this.commandArgs.split("\\s");
 
-                if (c == '"') count++;
-                else auxStr.append(c);
+            if (auxArr.length % 2 != 0)
+                throw new UnsupportedOperationException("All menbers must to have a score and value [score value]");
 
-                if (count == 2) {
-                    if (auxStr.toString().trim().length() <= 0)
-                        throw new UnsupportedOperationException("Cant insert empty or blank elements");
-                    values.add(ScoredValue.just(score, auxStr.toString().trim()));
-                    auxStr = new StringBuffer();
-                    score = null;
-                    count = 0;
+            for (int i = 0; i < auxArr.length; i++) {
+                auxStr.delete(0, auxStr.length());
+                auxStr.append(auxArr[i].trim());
+
+                if (i % 2 == 0) { //Even elements are score and odd are members
+                    score = TryParse.toDouble(auxStr.toString().replace(',', '.'));
+
+                    if (score == null)
+                        throw new UnsupportedOperationException("Invalid score informed: " + auxStr.toString());
+                } else {
+                    values.add(ScoredValue.just(score, auxStr.toString()));
                 }
             }
         }
-
-        ScoredValue<Object>[] valuesArr = new ScoredValue[values.size()];
-        this.scoredValues = values.toArray(valuesArr);
+        //Copy values to the class array attribute
+        this.scoredValues = new ScoredValue[values.size()];
+        this.scoredValues = values.toArray(this.scoredValues);
     }
 }
