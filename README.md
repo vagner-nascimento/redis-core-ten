@@ -1,4 +1,4 @@
-# REDIS_CORE_TEN
+# REDIS-CORE-TEN
 A Java redis core implementation to use the ten most commons commands of Redis.
 
 # Environment Variables to set:

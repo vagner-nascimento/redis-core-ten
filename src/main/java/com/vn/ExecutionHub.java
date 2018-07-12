@@ -119,7 +119,7 @@ public class ExecutionHub implements Runnable {
     @Override
     public void run() {
         try {
-            this.Execute();
+            System.out.println(this.Execute());
         } catch (IllegalArgumentException e) {
             System.out.println("Invalid command, please try again...");
         } catch (RedisCommandExecutionException | ConnectException | UnsupportedOperationException eRedis) {

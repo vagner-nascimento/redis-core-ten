@@ -1,23 +1,35 @@
 package com.vn.infrastructure.cache.redis;
 
+import com.sun.deploy.util.ArrayUtil;
 import io.lettuce.core.*;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.reactive.RedisReactiveCommands;
 import io.lettuce.core.api.sync.RedisCommands;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.Closeable;
 import java.net.ConnectException;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class RedisClientTen implements Closeable, IRedisCommands {
 
-    private RedisClient redisClient;
-    private StatefulRedisConnection<String, String> connection;
+    private final RedisClient redisClient;
+    private final StatefulRedisConnection<String, String> connection;
+    private RedisCommands multiCommands = null;
+    private boolean isMulti = false;
+    private boolean isCommadsExecuted = false;
 
     public RedisClientTen() throws ConnectException {
-        this(0);
+        this(0, false);
     }
 
-    public RedisClientTen(int dataBase) throws ConnectException {
+    public RedisClientTen(boolean isMulti) throws ConnectException {
+        this(0, isMulti);
+    }
+
+    public RedisClientTen(int dataBase, boolean isMulti) throws ConnectException {
         String redisServer = System.getenv("REDIS_SERVER");
 
         if (redisServer == null || redisServer.equals("")) {
@@ -37,9 +49,16 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
                         Builder.
                         redis(redisServer, redisPort)
                         .withPassword(redisPassword)
-                        .withDatabase(dataBase).build());
-
+                        .withDatabase(dataBase)
+                        .withTimeout(Duration.ofSeconds(15))
+                        .build());
         this.connection = redisClient.connect();
+        this.isMulti = isMulti;
+
+        if (this.isMulti) {
+            this.multiCommands = this.connection.sync();
+            this.multiCommands.multi();
+        }
     }
 
     @Override
@@ -51,92 +70,151 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     public String SetEX(KeyValue<Object, Object> item, long expireSeconds) {
         SetArgs commandArgs = new SetArgs();
 
-        if (expireSeconds > 0) {
-            commandArgs = SetArgs.Builder.ex(expireSeconds);
-        }
+        if (expireSeconds > 0) commandArgs = SetArgs.Builder.ex(expireSeconds);
 
-        RedisCommands syncCommands = this.connection.sync();
-        String result = syncCommands.set(item.getKey(), item.getValue(), commandArgs);
-        this.connection.reset();
+        String result = "";
+
+        if (this.isMulti) {
+            this.multiCommands.set(item.getKey(), item.getValue(), commandArgs);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            result = syncCommands.set(item.getKey(), item.getValue(), commandArgs);
+        }
         return result;
     }
 
     @Override
     public Object Get(Object key) {
-        RedisCommands syncCommands = this.connection.sync();
-        Object value = syncCommands.get(key);
-        this.connection.reset();
+        Object value = "";
+
+        if (this.isMulti) {
+            this.multiCommands.get(key);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            value = syncCommands.get(key);
+        }
         return value;
     }
 
     @Override
     public Long Del(Object... keys) {
-        RedisCommands syncCommands = this.connection.sync();
-        Long deleted = syncCommands.del(keys);
-        this.connection.reset();
+        Long deleted = 0L;
+
+        if (this.isMulti) {
+            this.multiCommands.del(keys);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            deleted = syncCommands.del(keys);
+        }
         return deleted;
     }
 
     @Override
     public Long DbSize() {
-        RedisCommands syncCommands = this.connection.sync();
-        Long dbSize = syncCommands.dbsize();
-        this.connection.reset();
+        Long dbSize = 0L;
+
+        if (this.isMulti) {
+            this.multiCommands.dbsize();
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            dbSize = syncCommands.dbsize();
+        }
         return dbSize;
     }
 
     @Override
     public Long Incr(Object key) {
-        RedisCommands syncCommands = this.connection.sync();
-        Long incremented = syncCommands.incr(key);
-        this.connection.reset();
+        Long incremented = 0L;
+
+        if (this.isMulti) {
+            this.multiCommands.incr(key);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            incremented = syncCommands.incr(key);
+        }
+
         return incremented;
     }
 
     @Override
     public Long ZAdd(Object key, ScoredValue<Object>... registries) {
-        RedisCommands syncCommands = this.connection.sync();
-        Long added = syncCommands.zadd(key, registries);
-        this.connection.reset();
+        Long added = 0L;
+
+        if (this.isMulti) {
+            this.multiCommands.zadd(key, registries);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            added = syncCommands.zadd(key, registries);
+        }
         return added;
     }
 
     @Override
     public Long ZCard(Object key) {
-        RedisCommands syncCommands = this.connection.sync();
-        Long found = syncCommands.zcard(key);
-        this.connection.reset();
+        Long found = 0L;
+
+        if (this.isMulti) {
+            this.multiCommands.zcard(key);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            found = syncCommands.zcard(key);
+        }
+
         return found;
     }
 
     @Override
     public Long ZRank(KeyValue<Object, Object> item) {
-        RedisCommands syncCommands = this.connection.sync();
-        Long rank = syncCommands.zrank(item.getKey(), item.getValue());
-        this.connection.reset();
+        Long rank = 0L;
+
+        if (this.isMulti) {
+            this.multiCommands.zrank(item.getKey(), item.getValue());
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
+            rank = syncCommands.zrank(item.getKey(), item.getValue());
+        }
+
         return rank;
     }
 
     @Override
     public List<Object> ZRange(Object key, long start, long stop, boolean withScores) {
-        RedisCommands syncCommands = this.connection.sync();
-        List rank;
+        List rank = new ArrayList();
 
-        if (withScores) rank = syncCommands.zrangeWithScores(key, start, stop);
-        else rank = syncCommands.zrange(key, start, stop);
+        if (this.isMulti) {
+            if (withScores) this.multiCommands.zrangeWithScores(key, start, stop);
+            else this.multiCommands.zrange(key, start, stop);
+        } else {
+            RedisCommands syncCommands = this.connection.sync();
 
-        this.connection.reset();
+            if (withScores) rank = syncCommands.zrangeWithScores(key, start, stop);
+            else rank = syncCommands.zrange(key, start, stop);
+        }
+
         return rank;
+    }
+
+    public TransactionResult ExecMultiCommands() throws UnsupportedOperationException {
+        if (!this.isMulti) {
+            throw new UnsupportedOperationException("This instance is not Multi Command");
+        } else if (this.isCommadsExecuted) {
+            throw new UnsupportedOperationException("Commands already benn executed");
+        }
+
+        this.isCommadsExecuted = true;
+        return this.multiCommands.exec();
     }
 
     @Override
     public void close() {
+        //Shutdown multi commands with force save operations
+        if (this.multiCommands != null) this.multiCommands.shutdown(true);
+
         if (this.connection != null && this.connection.isOpen()) {
+            this.connection.flushCommands(); //Flush all commands just for guaranteed
             this.connection.close();
         }
 
-        if (this.redisClient != null) {
-            this.redisClient.shutdown();
-        }
+        if (this.redisClient != null) this.redisClient.shutdown();
     }
 }
