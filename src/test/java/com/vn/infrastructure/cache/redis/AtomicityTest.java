@@ -1,6 +1,5 @@
-package com.vn;
+package com.vn.infrastructure.cache.redis;
 
-import com.vn.infrastructure.cache.redis.RedisClientTen;
 import io.lettuce.core.KeyValue;
 
 public class AtomicityTest {
@@ -12,39 +11,29 @@ public class AtomicityTest {
             System.out.println(e.getMessage());
         }
 
-        Thread get = new Thread(new AssyncGet(), "get");
-        //get.start();
+        Thread getSet = new Thread(new AssyncGetSet(), "getSet");
+        getSet.start();
 
         Thread goMultiOn = new Thread(new AssyncMultiOn(), "goMultiOn");
         goMultiOn.start();
 
         Thread goMultiOff = new Thread(new AssyncMultiOff(), "goMultiOff");
         goMultiOff.start();
-
-        /*
-        try (RedisClientTen reisMulti = new RedisClientTen(true)) {
-            Thread.sleep(500);
-            reisMulti.Get("atomic");
-            reisMulti.Set(KeyValue.just("atomic", "on"));
-            reisMulti.ExecMultiCommands().forEach(c -> System.out.println("Multi return: " + c));
-        } catch (Exception e) {
-            System.out.println("main Thread" + e.getMessage());
-        }
-        */
     }
 
-    public static class AssyncGet implements Runnable {
+    public static class AssyncGetSet implements Runnable {
         @Override
         public void run() {
             int count = 0;
             do {
                 try (RedisClientTen redis = new RedisClientTen()) {
-                    System.out.println(redis.Get("atomic"));
+                    System.out.println("GET: " + redis.Get("atomic"));
+                    System.out.println("SET: " + redis.Set(KeyValue.just("atomic", "break")));
                 } catch (Exception e) {
                     System.out.println(e.getMessage());
                 }
                 count++;
-            } while (count <= 80);
+            } while (count <= 100);
         }
     }
 
@@ -56,12 +45,16 @@ public class AtomicityTest {
                 try (RedisClientTen redis = new RedisClientTen(true)) {
                     redis.Get("atomic");
                     redis.Set(KeyValue.just("atomic", "off"));
-                    redis.ExecMultiCommands().forEach(r -> System.out.println(r));
+                    redis.ExecMultiCommands().forEach(r -> System.out.println("OFF: " + r));
+                    redis.Get("atomic");
+                    redis.Set(KeyValue.just("atomic", "off2"));
+                    redis.Get("atomic");
+                    redis.ExecMultiCommands().forEach(r -> System.out.println("OFF 2: " + r));
                 } catch (Exception e) {
                     System.out.println("Thread AssyncMultiOff: " + e.getMessage());
                 }
                 count++;
-            } while (count <= 80);
+            } while (count <= 100);
         }
     }
 
@@ -73,12 +66,12 @@ public class AtomicityTest {
                 try (RedisClientTen redis = new RedisClientTen(true)) {
                     redis.Get("atomic");
                     redis.Set(KeyValue.just("atomic", "on"));
-                    redis.ExecMultiCommands().forEach(r -> System.out.println(r));
+                    redis.ExecMultiCommands().forEach(r -> System.out.println("ON: " + r));
                 } catch (Exception e) {
                     System.out.println("Thread AssyncMultiOn: " + e.getMessage());
                 }
                 count++;
-            } while (count <= 80);
+            } while (count <= 100);
         }
     }
 }

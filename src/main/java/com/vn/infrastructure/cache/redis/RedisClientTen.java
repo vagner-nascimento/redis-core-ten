@@ -1,11 +1,9 @@
 package com.vn.infrastructure.cache.redis;
 
-import com.sun.deploy.util.ArrayUtil;
 import io.lettuce.core.*;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.reactive.RedisReactiveCommands;
 import io.lettuce.core.api.sync.RedisCommands;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
 import java.net.ConnectException;
@@ -19,14 +17,13 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     private final StatefulRedisConnection<String, String> connection;
     private RedisCommands multiCommands = null;
     private boolean isMulti = false;
-    private boolean isCommadsExecuted = false;
 
     public RedisClientTen() throws ConnectException {
         this(0, false);
     }
 
-    public RedisClientTen(boolean isMulti) throws ConnectException {
-        this(0, isMulti);
+    public RedisClientTen(boolean isMultiCommand) throws ConnectException {
+        this(0, isMultiCommand);
     }
 
     public RedisClientTen(int dataBase, boolean isMulti) throws ConnectException {
@@ -194,22 +191,25 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
         return rank;
     }
 
+    @NotNull
+    @Override
     public TransactionResult ExecMultiCommands() throws UnsupportedOperationException {
         if (!this.isMulti) {
             throw new UnsupportedOperationException("This instance is not Multi Command");
-        } else if (this.isCommadsExecuted) {
-            throw new UnsupportedOperationException("Commands already benn executed");
         }
 
-        this.isCommadsExecuted = true;
-        return this.multiCommands.exec();
+        TransactionResult results = this.multiCommands.exec();
+
+        if (this.connection != null && this.connection.isOpen()) {
+            this.multiCommands = this.connection.sync();
+            this.multiCommands.multi();
+        }
+
+        return results;
     }
 
     @Override
     public void close() {
-        //Shutdown multi commands with force save operations
-        if (this.multiCommands != null) this.multiCommands.shutdown(true);
-
         if (this.connection != null && this.connection.isOpen()) {
             this.connection.flushCommands(); //Flush all commands just for guaranteed
             this.connection.close();

@@ -2,7 +2,7 @@ package com.vn.infrastructure.cache.redis;
 
 import io.lettuce.core.KeyValue;
 import io.lettuce.core.ScoredValue;
-import io.lettuce.core.api.reactive.RedisReactiveCommands;
+import io.lettuce.core.TransactionResult;
 
 import java.util.List;
 
@@ -26,4 +26,6 @@ public interface IRedisCommands {
     Long ZRank(KeyValue<Object, Object> item);
 
     List<Object> ZRange(Object key, long start, long stop, boolean withScores);
+
+    TransactionResult ExecMultiCommands();
 }

@@ -6,11 +6,12 @@ import io.lettuce.core.RedisCommandExecutionException;
 
 import java.net.ConnectException;
 
-public class ExecutionHub implements Runnable {
+/**
+ * Made the integration between console and redis client (like a resource class in HTTP APIs).
+ * It receive a command string, validate and pass to Redis Client.
+ */
+public class ExecutionHub {
     private String command;
-
-    public ExecutionHub() {
-    }
 
     public ExecutionHub(String command) {
         this.command = command == null ? "" : command;
@@ -113,19 +114,6 @@ public class ExecutionHub implements Runnable {
             default:
                 return "Command not implemented";
 
-        }
-    }
-
-    @Override
-    public void run() {
-        try {
-            System.out.println(this.Execute());
-        } catch (IllegalArgumentException e) {
-            System.out.println("Invalid command, please try again...");
-        } catch (RedisCommandExecutionException | ConnectException | UnsupportedOperationException eRedis) {
-            System.out.println(eRedis.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 }
