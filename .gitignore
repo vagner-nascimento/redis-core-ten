@@ -24,3 +24,6 @@ hs_err_pid*
 
 # InteliJ IDE folder
 .idea/
+
+# Build folder
+target/

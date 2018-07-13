@@ -24,7 +24,6 @@
 
     <build>
         <plugins>
-            <!-- we want JDK 1.6 source and binary compatiblility -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
