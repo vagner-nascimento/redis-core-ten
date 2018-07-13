@@ -70,7 +70,7 @@ class AssyncSet implements Runnable {
     @Override
     public void run() {
         try (RedisClientTen redis = new RedisClientTen()) {
-            System.out.println("SET: " + redis.Set(KeyValue.just(String.format("key%d", this.count), String.format("Soviet Missile %d", this.count))));
+            System.out.println("SET: " + redis.Set(String.format("key%d", this.count), String.format("Soviet Missile %d", this.count)));
         } catch (ConnectException e) {
             System.out.println(e.getMessage());
         } catch (Exception e) {

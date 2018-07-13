@@ -1,9 +1,7 @@
 package com.vn.infrastructure.cache.redis;
 
-import io.lettuce.core.KeyValue;
-import io.lettuce.core.ScoredValue;
-
 import java.net.ConnectException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,13 +23,13 @@ public class CommandsTest {
         try (RedisClientTen redis = new RedisClientTen(true)) {
             String key = String.format("key-%s", System.nanoTime());
             redis.ZAdd(key,
-                    ScoredValue.just(1, "test1")
-                    , ScoredValue.just(2, "test2")
-                    , ScoredValue.just(3, "test3")
-                    , ScoredValue.just(4, "test4")
-                    , ScoredValue.just(5, "test5"));
+                    new AbstractMap.SimpleEntry(1, "test1")
+                    , new AbstractMap.SimpleEntry(2, "test2")
+                    , new AbstractMap.SimpleEntry(3, "test3")
+                    , new AbstractMap.SimpleEntry(4, "test4")
+                    , new AbstractMap.SimpleEntry(5, "test5"));
             redis.ZCard(key);
-            redis.ZRank(KeyValue.just(key, "test4"));
+            redis.ZRank(key, "test4");
             redis.ZRange(key, 1, 3, false);
             redis.Del(key);
             redis.ExecMultiCommands().forEach(r -> results.add(String.valueOf(r)));
@@ -102,7 +100,7 @@ public class CommandsTest {
             redis.DbSize();
             for (int i = 0; i < 5; i++) {
                 keys[i] = String.format("key-%s", System.nanoTime());
-                redis.Set(KeyValue.just(keys[i], "test"));
+                redis.Set(keys[i], "test");
             }
             redis.DbSize();
             redis.Del(keys);
@@ -119,7 +117,7 @@ public class CommandsTest {
         String response = "";
         try (RedisClientTen redis = new RedisClientTen(true)) {
             String key = String.format("test-%s", System.nanoTime());
-            redis.Set(KeyValue.just(key, value));
+            redis.Set(key, value);
             redis.Get(key);
             redis.Del(key);
             List<Object> responseValues = new ArrayList<>();
@@ -160,7 +158,7 @@ public class CommandsTest {
         String response = "";
         try (RedisClientTen redis = new RedisClientTen(true)) {
             String key = String.format("test-%s", System.nanoTime());
-            redis.Set(KeyValue.just(key, "test"));
+            redis.Set(key, "test");
             redis.Del(key);
             List<Object> responseValues = new ArrayList<>();
             redis.ExecMultiCommands().forEach(val -> {
@@ -181,7 +179,7 @@ public class CommandsTest {
         try (RedisClientTen redis = new RedisClientTen(true)) {
             String key = String.format("test-%s", System.nanoTime());
             response.add(key);
-            redis.SetEX(KeyValue.just(key, "test"), expire);
+            redis.SetEX(key, "test", expire);
             redis.Get(key);
             redis.ExecMultiCommands().forEach(val -> {
                 response.add(String.valueOf(val));
@@ -202,7 +200,7 @@ public class CommandsTest {
 
             for (int i = 0; i < keysQt; i++) {
                 keys[i] = String.format("test-%s", System.nanoTime());
-                redis.Set(KeyValue.just(keys[i], "test"));
+                redis.Set(keys[i], "test");
             }
 
             redis.Del(keys);

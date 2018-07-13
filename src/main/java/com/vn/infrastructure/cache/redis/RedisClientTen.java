@@ -1,6 +1,9 @@
 package com.vn.infrastructure.cache.redis;
 
-import io.lettuce.core.*;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.ScoredValue;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.jetbrains.annotations.NotNull;
@@ -10,6 +13,7 @@ import java.net.ConnectException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public final class RedisClientTen implements Closeable, IRedisCommands {
 
@@ -59,12 +63,12 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public String Set(KeyValue<Object, Object> item) {
-        return this.SetEX(item, -1);
+    public String Set(Object key, Object value) {
+        return this.SetEX(key, value, -1);
     }
 
     @Override
-    public String SetEX(KeyValue<Object, Object> item, long expireSeconds) {
+    public String SetEX(Object key, Object value, long expireSeconds) {
         SetArgs commandArgs = new SetArgs();
 
         if (expireSeconds > 0) commandArgs = SetArgs.Builder.ex(expireSeconds);
@@ -72,10 +76,10 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
         String result = "";
 
         if (this.isMulti) {
-            this.multiCommands.set(item.getKey(), item.getValue(), commandArgs);
+            this.multiCommands.set(key, value, commandArgs);
         } else {
             RedisCommands syncCommands = this.connection.sync();
-            result = syncCommands.set(item.getKey(), item.getValue(), commandArgs);
+            result = syncCommands.set(key, value, commandArgs);
         }
         return result;
     }
@@ -134,14 +138,19 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public Long ZAdd(Object key, ScoredValue<Object>... registries) {
+    public Long ZAdd(Object key, Map.Entry<Double, Object>... registries) {
         Long added = 0L;
+        ScoredValue<Object>[] scoredValues = new ScoredValue[registries.length];
+
+        for (int i = 0; i < registries.length; i++) {
+            scoredValues[i] = ScoredValue.just(registries[i].getKey(), registries[i].getValue());
+        }
 
         if (this.isMulti) {
-            this.multiCommands.zadd(key, registries);
+            this.multiCommands.zadd(key, scoredValues);
         } else {
             RedisCommands syncCommands = this.connection.sync();
-            added = syncCommands.zadd(key, registries);
+            added = syncCommands.zadd(key, scoredValues);
         }
         return added;
     }
@@ -161,14 +170,14 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public Long ZRank(KeyValue<Object, Object> item) {
+    public Long ZRank(Object key, Object value) {
         Long rank = 0L;
 
         if (this.isMulti) {
-            this.multiCommands.zrank(item.getKey(), item.getValue());
+            this.multiCommands.zrank(key, value);
         } else {
             RedisCommands syncCommands = this.connection.sync();
-            rank = syncCommands.zrank(item.getKey(), item.getValue());
+            rank = syncCommands.zrank(key, value);
         }
 
         return rank;
@@ -193,12 +202,14 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
 
     @NotNull
     @Override
-    public TransactionResult ExecMultiCommands() throws UnsupportedOperationException {
+    public List<Object> ExecMultiCommands() throws UnsupportedOperationException {
         if (!this.isMulti) {
             throw new UnsupportedOperationException("This instance is not Multi Command");
         }
 
-        TransactionResult results = this.multiCommands.exec();
+        List<Object> results = new ArrayList<>();
+
+        this.multiCommands.exec().forEach(r -> results.add(r));
 
         if (this.connection != null && this.connection.isOpen()) {
             this.multiCommands = this.connection.sync();

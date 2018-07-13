@@ -1,17 +1,16 @@
 package com.vn.infrastructure.cache.redis;
 
-import io.lettuce.core.KeyValue;
-import io.lettuce.core.ScoredValue;
 import io.lettuce.core.TransactionResult;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IRedisCommands {
     Object Get(Object key);
 
-    Object Set(KeyValue<Object, Object> item);
+    Object Set(Object key, Object value);
 
-    Object SetEX(KeyValue<Object, Object> item, long expireSeconds);
+    Object SetEX(Object key, Object value, long expireSeconds);
 
     Long Del(Object... keys);
 
@@ -19,13 +18,13 @@ public interface IRedisCommands {
 
     Long Incr(Object key);
 
-    Long ZAdd(Object key, ScoredValue<Object>... registries);
+    Long ZAdd(Object key, Map.Entry<Double, Object>... registries);
 
     Long ZCard(Object key);
 
-    Long ZRank(KeyValue<Object, Object> item);
+    Long ZRank(Object key, Object value);
 
     List<Object> ZRange(Object key, long start, long stop, boolean withScores);
 
-    TransactionResult ExecMultiCommands();
+    List<Object> ExecMultiCommands();
 }

@@ -1,12 +1,10 @@
 package com.vn.infrastructure.cache.redis;
 
-import io.lettuce.core.KeyValue;
-
 public class AtomicityTest {
     public static void main(String[] args) {
 
         try (RedisClientTen redis = new RedisClientTen()) {
-            redis.Set(KeyValue.just("atomic", "off"));
+            redis.Set("atomic", "off");
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
@@ -28,7 +26,7 @@ public class AtomicityTest {
             do {
                 try (RedisClientTen redis = new RedisClientTen()) {
                     System.out.println("GET: " + redis.Get("atomic"));
-                    System.out.println("SET: " + redis.Set(KeyValue.just("atomic", "break")));
+                    System.out.println("SET: " + redis.Set("atomic", "break"));
                 } catch (Exception e) {
                     System.out.println(e.getMessage());
                 }
@@ -44,10 +42,10 @@ public class AtomicityTest {
             do {
                 try (RedisClientTen redis = new RedisClientTen(true)) {
                     redis.Get("atomic");
-                    redis.Set(KeyValue.just("atomic", "off"));
+                    redis.Set("atomic", "off");
                     redis.ExecMultiCommands().forEach(r -> System.out.println("OFF: " + r));
                     redis.Get("atomic");
-                    redis.Set(KeyValue.just("atomic", "off2"));
+                    redis.Set("atomic", "off2");
                     redis.Get("atomic");
                     redis.ExecMultiCommands().forEach(r -> System.out.println("OFF 2: " + r));
                 } catch (Exception e) {
@@ -65,7 +63,7 @@ public class AtomicityTest {
             do {
                 try (RedisClientTen redis = new RedisClientTen(true)) {
                     redis.Get("atomic");
-                    redis.Set(KeyValue.just("atomic", "on"));
+                    redis.Set("atomic", "on");
                     redis.ExecMultiCommands().forEach(r -> System.out.println("ON: " + r));
                 } catch (Exception e) {
                     System.out.println("Thread AssyncMultiOn: " + e.getMessage());

@@ -25,6 +25,7 @@ public class Console {
                 ExecutionHub commandExecution = new ExecutionHub(commandStr);
                 System.out.println(commandExecution.Execute());
             } catch (IllegalArgumentException e) {
+                System.out.print("\n" + e.getMessage());
                 System.out.println("Invalid command, please try again...");
                 continue;
             } catch (RedisCommandExecutionException | ConnectException | UnsupportedOperationException eRedis) {
