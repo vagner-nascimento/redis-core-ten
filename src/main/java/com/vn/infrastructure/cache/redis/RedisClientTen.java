@@ -138,12 +138,14 @@ public final class RedisClientTen implements Closeable, IRedisCommands {
     }
 
     @Override
-    public Long ZAdd(Object key, Map.Entry<Double, Object>... registries) {
+    public Long ZAdd(Object key, List<Map.Entry<Double, Object>> registries) {
         Long added = 0L;
-        ScoredValue<Object>[] scoredValues = new ScoredValue[registries.length];
+        ScoredValue<Object>[] scoredValues = new ScoredValue[registries.size()];
+        int index = 0;
 
-        for (int i = 0; i < registries.length; i++) {
-            scoredValues[i] = ScoredValue.just(registries[i].getKey(), registries[i].getValue());
+        for (Map.Entry<Double, Object> r : registries) {
+            scoredValues[index] = ScoredValue.just(r.getKey(), r.getValue());
+            index++;
         }
 
         if (this.isMulti) {

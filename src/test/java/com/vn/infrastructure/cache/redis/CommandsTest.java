@@ -5,6 +5,7 @@ import com.vn.util.MapEntry;
 import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class CommandsTest {
     public static void main(String[] args) throws InterruptedException {
@@ -23,12 +24,13 @@ public class CommandsTest {
 
         try (RedisClientTen redis = new RedisClientTen(true)) {
             String key = String.format("key-%s", System.nanoTime());
-            redis.ZAdd(key,
-                    new MapEntry<Double, Object>(1D, "test1")
-                    , new MapEntry<Double, Object>(2D, "test2")
-                    , new MapEntry<Double, Object>(3D, "test3")
-                    , new MapEntry<Double, Object>(4D, "test4")
-                    , new MapEntry<Double, Object>(5D, "test5"));
+            List<Map.Entry<Double, Object>> entries = new ArrayList<>();
+            entries.add(new MapEntry<>(1D, "test1"));
+            entries.add(new MapEntry<>(2D, "test2"));
+            entries.add(new MapEntry<>(3D, "test3"));
+            entries.add(new MapEntry<>(4D, "test4"));
+            entries.add(new MapEntry<>(5D, "test5"));
+            redis.ZAdd(key, entries);
             redis.ZCard(key);
             redis.ZRank(key, "test4");
             redis.ZRange(key, 1, 3, false);

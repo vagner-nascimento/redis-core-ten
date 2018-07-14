@@ -1,7 +1,5 @@
 package com.vn.infrastructure.cache.redis;
 
-import io.lettuce.core.TransactionResult;
-
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +16,7 @@ public interface IRedisCommands {
 
     Long Incr(Object key);
 
-    Long ZAdd(Object key, Map.Entry<Double, Object>... registries);
+    Long ZAdd(Object key, List<Map.Entry<Double, Object>> registries);
 
     Long ZCard(Object key);
 

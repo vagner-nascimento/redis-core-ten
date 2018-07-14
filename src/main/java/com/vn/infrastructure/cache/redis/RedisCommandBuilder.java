@@ -17,7 +17,7 @@ public final class RedisCommandBuilder {
     private Object value;
     private KeyValue keyValue;
     private String commandArgs;
-    private Map.Entry<Double, Object>[] scoredValues;
+    private List<Map.Entry<Double, Object>> scoredValues;
     private Long expiration, startPos, stopPos;
     private boolean withScores;
     private Object[] keysToDelete;
@@ -38,19 +38,6 @@ public final class RedisCommandBuilder {
         return this.key;
     }
 
-    /**
-     * @return Key value, if possible, otherwise, returns null
-     */
-    @Nullable
-    public KeyValue<Object, Object> getKeyValue() {
-        if (this.keyValue == null
-                && (this.key != null && !this.key.equals(""))
-                && (this.getValue() != null && !this.value.equals(""))) {
-            this.keyValue = KeyValue.just(this.key, this.getValue());
-        }
-        return this.keyValue;
-    }
-
     @NotNull
     public CommandType getCommand() {
         return this.command;
@@ -62,7 +49,7 @@ public final class RedisCommandBuilder {
      *                                       array from command argumments
      */
     @NotNull
-    public Map.Entry<Double, Object>[] getScoredValues() throws UnsupportedOperationException {
+    public List<Map.Entry<Double, Object>> getScoredValues() throws UnsupportedOperationException {
         if (this.scoredValues == null) this.exctractScoredValues();
 
         return this.scoredValues;
@@ -192,7 +179,7 @@ public final class RedisCommandBuilder {
      * @throws UnsupportedOperationException If some validadtion was not OK
      */
     private void exctractScoredValues() throws UnsupportedOperationException {
-        List<Map.Entry<Double, Object>> values = new ArrayList<>();
+        this.scoredValues = new ArrayList<>();
         Double score = null;
         StringBuffer auxStr = new StringBuffer();
 
@@ -200,10 +187,7 @@ public final class RedisCommandBuilder {
         if (this.commandArgs.contains("\"")) {
             char[] chars = this.commandArgs.toCharArray();
 
-            if (chars.length <= 0) {
-                this.scoredValues = new Map.Entry[0];
-                return;
-            }
+            if (chars.length <= 0) return;
 
             int count = 0;
 
@@ -232,7 +216,7 @@ public final class RedisCommandBuilder {
                         if (auxStr.toString().trim().length() <= 0)
                             throw new UnsupportedOperationException("Can't insert empty or blank elements");
 
-                        values.add(new AbstractMap.SimpleEntry<>(score, auxStr.toString().trim()));
+                        this.scoredValues.add(new AbstractMap.SimpleEntry<>(score, auxStr.toString().trim()));
                         auxStr.delete(0, auxStr.length());
                         score = null;
                         count = 0;
@@ -255,12 +239,9 @@ public final class RedisCommandBuilder {
                     if (score == null)
                         throw new UnsupportedOperationException("Invalid score informed: " + auxStr.toString());
                 } else {
-                    values.add(new AbstractMap.SimpleEntry<>(score, auxStr.toString().trim()));
+                    this.scoredValues.add(new AbstractMap.SimpleEntry<>(score, auxStr.toString().trim()));
                 }
             }
         }
-
-        this.scoredValues = new Map.Entry[values.size()];
-        this.scoredValues = values.toArray(this.scoredValues);
     }
 }

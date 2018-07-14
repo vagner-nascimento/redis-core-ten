@@ -73,7 +73,7 @@ public class ExecutionHub {
                 RedisClientTen lClient = null;
 
                 try {
-                    if (commandBuilder.getKey() == null || commandBuilder.getScoredValues().length <= 0) {
+                    if (commandBuilder.getKey() == null || commandBuilder.getScoredValues().size() <= 0) {
                         return "Invalid parameters for ZADD method";
                     }
 
