@@ -1,7 +1,8 @@
 package com.vn.infrastructure.cache.redis;
 
+import com.vn.util.MapEntry;
+
 import java.net.ConnectException;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,11 +24,11 @@ public class CommandsTest {
         try (RedisClientTen redis = new RedisClientTen(true)) {
             String key = String.format("key-%s", System.nanoTime());
             redis.ZAdd(key,
-                    new AbstractMap.SimpleEntry(1, "test1")
-                    , new AbstractMap.SimpleEntry(2, "test2")
-                    , new AbstractMap.SimpleEntry(3, "test3")
-                    , new AbstractMap.SimpleEntry(4, "test4")
-                    , new AbstractMap.SimpleEntry(5, "test5"));
+                    new MapEntry<Double, Object>(1D, "test1")
+                    , new MapEntry<Double, Object>(2D, "test2")
+                    , new MapEntry<Double, Object>(3D, "test3")
+                    , new MapEntry<Double, Object>(4D, "test4")
+                    , new MapEntry<Double, Object>(5D, "test5"));
             redis.ZCard(key);
             redis.ZRank(key, "test4");
             redis.ZRange(key, 1, 3, false);
