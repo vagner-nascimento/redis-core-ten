@@ -1,10 +1,13 @@
 # Redis Core Ten
 A Java redis core implementation to use the ten most commons commands of Redis.
 
-# Environment Variables to set:
+# Requirements
+- Maven 3.5 or higher
+
+# Environment Variables to set
 - REDIS_SERVER (Required, the program doesn't run without that)
 - REDIS_PORT (Optional, default: 6379)
-- REDIS_PASSWORD (Optional)
+- REDIS_PASSWORD (Optional, default: empty string)
 
 # Run
 - To run in console mode to enter with commands manually run "Console.java" file.

@@ -1,7 +1,6 @@
-package com.vn.infrastructure.cache.redis;
+package com.vn;
 
 import com.vn.util.TryParse;
-import io.lettuce.core.KeyValue;
 import io.lettuce.core.protocol.CommandType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,7 +14,6 @@ public final class RedisCommandBuilder {
     private CommandType command;
     private Object key;
     private Object value;
-    private KeyValue keyValue;
     private String commandArgs;
     private List<Map.Entry<Double, Object>> scoredValues;
     private Long expiration, startPos, stopPos;

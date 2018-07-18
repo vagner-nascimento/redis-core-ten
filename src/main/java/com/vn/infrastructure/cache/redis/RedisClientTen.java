@@ -1,5 +1,6 @@
 package com.vn.infrastructure.cache.redis;
 
+import com.vn.infrastructure.cache.ICacheCommands;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.ScoredValue;
@@ -15,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public final class RedisClientTen implements Closeable, IRedisCommands {
+public final class RedisClientTen implements Closeable, ICacheCommands {
 
     private final RedisClient redisClient;
     private final StatefulRedisConnection<String, String> connection;

@@ -1,9 +1,9 @@
-package com.vn.infrastructure.cache.redis;
+package com.vn.infrastructure.cache;
 
 import java.util.List;
 import java.util.Map;
 
-public interface IRedisCommands {
+public interface ICacheCommands {
     Object Get(Object key);
 
     Object Set(Object key, Object value);
